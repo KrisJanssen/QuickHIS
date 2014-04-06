@@ -22,7 +22,7 @@ function varargout = QuickHIS(varargin)
 
 % Edit the above text to modify the response to help QuickHIS
 
-% Last Modified by GUIDE v2.5 06-Apr-2014 00:19:44
+% Last Modified by GUIDE v2.5 06-Apr-2014 17:15:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -82,23 +82,31 @@ function uiFileOpenBtn_ClickedCallback(hObject, eventdata, handles)
 % hObject    handle to uiFileOpenBtn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-[filename, path] = uigetfile('*.HIS','Select the Hamamatsu stream file');
-handles.filename = filename;
-handles.path = path;
-set(handles.textboxFN, 'String', filename);
+[file, path] = uigetfile('*.HIS','Select the Hamamatsu stream file');
 
-handles.data = bfopen(strcat(handles.path, handles.filename));
-maxVal = size(handles.data, 1);
-stepVal = 1 / (maxVal - 1);
-set(handles.sliderFrame,'Min', 1, 'Max', maxVal, 'Sliderstep', [stepVal , stepVal], 'Value', 1);
-imshow(handles.data{1,1}{1,1}, 'Parent', handles.axesFrame);
-guidata(hObject, handles);
+if path == 0
+    return
+else
+    handles.filename = file;
+    handles.path = path;
+    set(handles.textboxFN, 'String', 'Opening file... this might take a while');
+    drawnow;
+    handles.data = bfopen(strcat(handles.path, handles.filename));
+    maxVal = size(handles.data, 1);
+    stepVal = 1 / (maxVal - 1);
+    set(handles.sliderFrame,'Min', 1, 'Max', maxVal, 'Sliderstep', [stepVal , stepVal], 'Value', 1);
+    imshow(handles.data{1,1}{1,1}, 'Parent', handles.axesFrame);
+    guidata(hObject, handles);
+end
+
 
 % --- Executes when figure1 is resized.
 function figure1_ResizeFcn(hObject, eventdata, handles)
 % hObject    handle to figure1 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)  
+% handles    structure with handles and user data (see GUIDATA)
+
+% We use the setpos library to position controls nicely within the fig
 setpos(handles.textboxFN, '0.05nz 0.9nz 0.9nz 0.1nz');
 setpos(handles.axesFrame, '0.1nz 0.2nz 0.8nz 0.8nz');
 setpos(handles.sliderFrame, '0.05nz 0.05nz 0.9nz 0.1nz');
@@ -113,9 +121,16 @@ function sliderFrame_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'Value') returns position of slider
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
+
+% Get the slider value and round it to the closest int
 value = round(get(hObject,'Value'));
+
+% Show the slider value to the user
 set (handles.textboxFN, 'String', value);
+
+% Select the proper image to show.
 imshow(imadjust(handles.data{value,1}{1,1}), 'Parent', handles.axesFrame);
+
 
 % --- Executes during object creation, after setting all properties.
 function sliderFrame_CreateFcn(hObject, eventdata, handles)
@@ -135,8 +150,18 @@ function btnExport_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 currentFrame = round(get(handles.sliderFrame, 'Value'));
+
+% Pass image to imadjust to improve contrast.
 adjustedFrame = imadjust(handles.data{currentFrame,1}{1,1});
-[FileName, PathName] = uiputfile('*.png', 'Save As'); %# <-- dot
-if PathName==0, return; end
-Name = fullfile(PathName,FileName);  %# <--- reverse the order of arguments
-imwrite(adjustedFrame, Name, 'png');
+
+% Call a file dialog and process it
+[file, path] = uiputfile('*.png', 'Save As');
+
+if path == 0 
+    % User canceled, do nothing.
+    return; 
+else
+    % Save the file.
+    path = fullfile(path,file);
+    imwrite(adjustedFrame, path, 'png');
+end
